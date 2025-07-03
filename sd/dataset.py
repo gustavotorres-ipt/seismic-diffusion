@@ -57,6 +57,7 @@ class CustomDataset(torch.utils.data.Dataset):
         # Load image
         image = Image.open(self.image_paths[idx]).convert("RGB")
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1)
+        image = image.float()
 
         # input_images_tensor = rescale(input_images_tensor, (0, 255), (-1, 1))
         text = self.texts[idx]

@@ -49,7 +49,7 @@ cfg_scale = 8  # min: 1, max: 14
 
 input_images = None
 # Comment to disable image to image
-image_path = "../images/dog.jpg"
+image_path = "../data/dog.jpeg"
 input_images = [Image.open(image_path) for _ in range(BATCH_SIZE)]
 # Higher values means more noise will be added to the input image, so the result will further from the input image.
 # Lower values means less noise is added to the input image, so output will be closer to the input image.
