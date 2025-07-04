@@ -25,7 +25,7 @@ class DDPMSampler:
     def _get_previous_timestep(self, timestep: int) -> int:
         prev_t = timestep - self.num_train_timesteps // self.num_inference_steps
         return prev_t
-    
+
     def _get_variance(self, timestep: int) -> torch.Tensor:
         prev_t = self._get_previous_timestep(timestep)
 
@@ -117,7 +117,3 @@ class DDPMSampler:
         noise = torch.randn(original_samples.shape, generator=self.generator, device=original_samples.device, dtype=original_samples.dtype)
         noisy_samples = sqrt_alpha_prod * original_samples + sqrt_one_minus_alpha_prod * noise
         return noisy_samples
-
-        
-
-    
