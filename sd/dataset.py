@@ -23,7 +23,7 @@ def load_images(batch_size):
     images = [Image.open(path).convert("RGB") for path in image_paths[:batch_size]]
     return images
 
-def load_datasets():
+def load_datasets(preprocess):
     image_paths = [os.path.join(IMAGE_FOLDER, filename)
                    for filename in os.listdir(IMAGE_FOLDER) ]
 
@@ -33,7 +33,7 @@ def load_datasets():
     captions = [read_captions_json(path) for path in text_paths]
 
     train_dataset = CustomDataset(
-        image_paths=image_paths, texts=captions)
+        image_paths=image_paths, texts=captions, transform=preprocess)
 
     train_size = int(0.7 * len(train_dataset))
     val_size = int(0.2 * len(train_dataset))
@@ -57,8 +57,9 @@ class CustomDataset(torch.utils.data.Dataset):
         # Load image
         image = Image.open(self.image_paths[idx]).convert("RGB")
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1)
-        image = image.float()
+        image_norm = (image / 127.5) - 1.0
 
-        # input_images_tensor = rescale(input_images_tensor, (0, 255), (-1, 1))
+        # if self.transform:
+        #     image = self.transform(image)
         text = self.texts[idx]
-        return image, text
+        return image_norm, text

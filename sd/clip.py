@@ -87,7 +87,7 @@ class CLIP(nn.Module):
         state = self.embedding(tokens)
 
         # Apply encoder layers similar to the Transformer's encoder.
-        for layer in self.layers: 
+        for layer in self.layers:
             # (Batch_Size, Seq_Len, Dim) -> (Batch_Size, Seq_Len, Dim)
             state = layer(state)
         # (Batch_Size, Seq_Len, Dim) -> (Batch_Size, Seq_Len, Dim)

@@ -13,24 +13,33 @@ from torch import nn
 from ddpm import DDPMSampler
 from accelerate import Accelerator
 from pipeline import WIDTH, HEIGHT, LATENTS_WIDTH, LATENTS_HEIGHT, get_time_embedding
+from clip_seismic import load_clip_model
+from transformers import AutoTokenizer, AutoModel
 
 # TODO mudar os embeddings de (768,44) para (512,1)
 
-NUM_EPOCHS = 2
+NUM_EPOCHS = 10
 BATCH_SIZE = 4
 N_INFERENCE_STEPS = 30
 
 def generate_tokens(tokenizer, prompts):
     with torch.no_grad():
-        # Convert into a list of length Seq_Len=77
-        tokens = tokenizer.batch_encode_plus(
-            prompts, padding="max_length", max_length=77
-        ).input_ids
-        # (Batch_Size, Seq_Len)
-        tokens = torch.tensor(tokens, dtype=torch.long, device=DEVICE)
-        # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
+        # # Convert into a list of length Seq_Len=77
+        # tokens = tokenizer.batch_encode_plus(
+        #     prompts, padding="max_length", max_length=77
+        # ).input_ids
+        # # (Batch_Size, Seq_Len)
+        # tokens = torch.tensor(tokens, dtype=torch.long, device=DEVICE)
+        # # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
 
-        return tokens
+        # return tokens
+
+        tok_batch = tokenizer(
+            prompts, padding=True, truncation=True, return_tensors="pt",
+            max_length=128
+        ).to(DEVICE)
+
+        return tok_batch
 
 
 def generate_latent_imgs(encoder, sampler, generator, input_images_tensor, timestep):
@@ -77,7 +86,7 @@ def train(train_loader, val_loader, models, sampler, generator):
     # Initialize Accelerator
     accelerator = Accelerator()
 
-    all_params = list(encoder.parameters()) + list(clip.parameters()) + \
+    all_params = list(encoder.parameters()) + \
         list(diffusion.parameters()) + list(decoder.parameters())
 
     # Optimizer setup
@@ -157,7 +166,7 @@ def calc_loss(batch, sampler, encoder, generator, clip, diffusion, loss_fn):
 
     tokens = generate_tokens(tokenizer, texts)
 
-    context = clip(tokens)
+    context = clip.encode_text(tokens)
 
     time_embedding = get_time_embedding(timestep).to(DEVICE)
 
@@ -165,12 +174,6 @@ def calc_loss(batch, sampler, encoder, generator, clip, diffusion, loss_fn):
 
     loss = loss_fn(noise_pred, noise)
     return loss
-
-        # for _ in range(10):
-        #     encoder.eval()
-        #     decoder.eval()
-        #     clip.eval()
-        #     diffusion.eval()
 
 
 if __name__ == "__main__":
@@ -180,15 +183,21 @@ if __name__ == "__main__":
         DEVICE = "cpu"
     print(f"Using device: {DEVICE}")
 
-    #model, _, preprocess = open_clip.create_model_and_transforms(
-    #    'ViT-B-32', pretrained='laion2b_s34b_b79k'
-    #)
+    tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
+    tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
-    tokenizer = CLIPTokenizer("../data/vocab.json", merges_file="../data/merges.txt")
     model_file = "../data/v1-5-pruned-emaonly.ckpt"
     models = model_loader.preload_models_from_standard_weights(model_file, DEVICE)
 
-    train_dataset, val_dataset, test_dataset = load_datasets()
+    _, _, preprocess = open_clip.create_model_and_transforms(
+        'ViT-B-32', pretrained='laion2b_s34b_b79k'
+    )
+    custom_clip_model = load_clip_model()
+
+    custom_clip_model.to(DEVICE)
+    models["clip"] = custom_clip_model
+
+    train_dataset, val_dataset, test_dataset = load_datasets(preprocess)
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
@@ -196,10 +205,6 @@ if __name__ == "__main__":
 
     generator = torch.Generator(device=DEVICE)
     generator.seed()
-
-    models["encoder"].to(DEVICE)
-    models["clip"].to(DEVICE)
-    models["diffusion"].to(DEVICE)
 
     sampler = DDPMSampler(generator)
     sampler.set_inference_timesteps(N_INFERENCE_STEPS)
