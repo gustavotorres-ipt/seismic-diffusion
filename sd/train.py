@@ -114,7 +114,7 @@ def train(train_loader, val_loader, models, sampler, generator):
             optimizer.step()
             optimizer.zero_grad()
 
-            if i % 2 == 0:
+            if i % 10 == 0:
                 print(f"[Train] Epoch {epoch}, Step {i}, Loss: {loss_value:.4f}")
 
             total_train_loss += loss_value
@@ -135,7 +135,7 @@ def train(train_loader, val_loader, models, sampler, generator):
                 loss_value = loss.item()
                 total_val_loss += loss_value
 
-                if i % 2 == 0:
+                if i % 10 == 0:
                     print(f"[Val] Epoch {epoch}, Step {i}, Loss: {loss_value:.4f}")
 
             val_loss_per_epoch.append(total_val_loss / len(val_loader))
@@ -192,10 +192,6 @@ if __name__ == "__main__":
     _, _, preprocess = open_clip.create_model_and_transforms(
         'ViT-B-32', pretrained='laion2b_s34b_b79k'
     )
-    custom_clip_model = load_clip_model()
-
-    custom_clip_model.to(DEVICE)
-    models["clip"] = custom_clip_model
 
     train_dataset, val_dataset, test_dataset = load_datasets(preprocess)
 
