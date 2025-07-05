@@ -16,8 +16,6 @@ from pipeline import WIDTH, HEIGHT, LATENTS_WIDTH, LATENTS_HEIGHT, get_time_embe
 from clip_seismic import load_clip_model
 from transformers import AutoTokenizer, AutoModel
 
-# TODO mudar os embeddings de (768,44) para (512,1)
-
 NUM_EPOCHS = 10
 BATCH_SIZE = 4
 N_INFERENCE_STEPS = 30
