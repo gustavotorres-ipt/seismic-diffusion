@@ -16,9 +16,9 @@ from pipeline import WIDTH, HEIGHT, LATENTS_WIDTH, LATENTS_HEIGHT, get_time_embe
 
 # TODO mudar os embeddings de (768,44) para (512,1)
 
-NUM_EPOCHS = 2
+NUM_EPOCHS = 10
 BATCH_SIZE = 4
-N_INFERENCE_STEPS = 30
+N_INFERENCE_STEPS = 50
 
 def generate_tokens(tokenizer, prompts):
     with torch.no_grad():
@@ -211,7 +211,7 @@ if __name__ == "__main__":
     print("Testing...")
     test(test_loader, models, sampler, generator)
 
-    output_file_name =  'multimodal_model.pth'
+    output_file_name = 'multimodal_model_no_custom_clip.pth'
     torch.save({
         'clip': models['clip'].state_dict(),
         'encoder': models['encoder'].state_dict(),

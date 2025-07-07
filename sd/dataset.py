@@ -1,6 +1,7 @@
 import json
 import os
 import random
+from matplotlib.pyplot import install_repl_displayhook
 import torch
 import numpy as np
 from torch.utils.data import random_split
@@ -9,6 +10,17 @@ from PIL import Image
 
 IMAGE_FOLDER = "../data/images"
 TEXT_FOLDER = "../data/captions"
+
+
+def rescale(x, old_range, new_range, clamp=False):
+    old_min, old_max = old_range
+    new_min, new_max = new_range
+    x -= old_min
+    x *= (new_max - new_min) / (old_max - old_min)
+    x += new_min
+    if clamp:
+        x = x.clamp(new_min, new_max)
+    return x
 
 
 def read_captions_json(file_path):
@@ -57,8 +69,7 @@ class CustomDataset(torch.utils.data.Dataset):
         # Load image
         image = Image.open(self.image_paths[idx]).convert("RGB")
         image = torch.from_numpy(np.array(image)).permute(2, 0, 1)
-        image = image.float()
 
-        # input_images_tensor = rescale(input_images_tensor, (0, 255), (-1, 1))
+        input_images_tensor = rescale(image, (0, 255), (-1, 1))
         text = self.texts[idx]
-        return image, text
+        return input_images_tensor, text
