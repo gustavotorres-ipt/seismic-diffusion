@@ -84,11 +84,11 @@ def train(train_loader, val_loader, models, sampler, generator):
     # Initialize Accelerator
     accelerator = Accelerator()
 
-    all_params = list(encoder.parameters()) + \
+    all_params = list(encoder.parameters()) + list(clip.parameters()) + \
         list(diffusion.parameters()) + list(decoder.parameters())
 
     # Optimizer setup
-    optimizer = torch.optim.AdamW(all_params, lr=5e-6)
+    optimizer = torch.optim.Adam(all_params, lr=1e-5)
 
     train_loss_per_epoch = []
     val_loss_per_epoch = []
@@ -185,13 +185,14 @@ if __name__ == "__main__":
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
 
     model_file = "../data/v1-5-pruned-emaonly.ckpt"
+    # model_file = "multimodal_model.pth"
     models = model_loader.preload_models_from_standard_weights(model_file, DEVICE)
 
-    _, _, preprocess = open_clip.create_model_and_transforms(
-        'ViT-B-32', pretrained='laion2b_s34b_b79k'
-    )
+    # _, _, preprocess = open_clip.create_model_and_transforms(
+    #     'ViT-B-32', pretrained='laion2b_s34b_b79k'
+    # )
 
-    train_dataset, val_dataset, test_dataset = load_datasets(preprocess)
+    train_dataset, val_dataset, test_dataset = load_datasets(None)
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)

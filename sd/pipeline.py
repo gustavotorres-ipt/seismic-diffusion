@@ -43,34 +43,15 @@ def generate(
         clip = models["clip"]
         clip.to(device)
 
-        if do_cfg:
-            # Convert into a list of length Seq_Len=77
-            cond_tokens = tokenizer.batch_encode_plus(
-                prompts, padding="max_length", max_length=77
-            ).input_ids
-            # (Batch_Size, Seq_Len)
-            cond_tokens = torch.tensor(cond_tokens, dtype=torch.long, device=device)
-            # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
-            cond_context = clip(cond_tokens)
-            # Convert into a list of length Seq_Len=77
-            uncond_tokens = tokenizer.batch_encode_plus(
-                uncond_prompts, padding="max_length", max_length=77
-            ).input_ids
-            # (Batch_Size, Seq_Len)
-            uncond_tokens = torch.tensor(uncond_tokens, dtype=torch.long, device=device)
-            # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
-            uncond_context = clip(uncond_tokens)
-            # (Batch_Size, Seq_Len, Dim) + (Batch_Size, Seq_Len, Dim) -> (2 * Batch_Size, Seq_Len, Dim)
-            context = torch.cat([cond_context, uncond_context])
-        else:
-            # Convert into a list of length Seq_Len=77
-            tokens = tokenizer.batch_encode_plus(
-                prompts, padding="max_length", max_length=77
-            ).input_ids
-            # (Batch_Size, Seq_Len)
-            tokens = torch.tensor(tokens, dtype=torch.long, device=device)
-            # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
-            context = clip(tokens)
+        # Convert into a list of length Seq_Len=77
+        tokens = tokenizer(
+            prompts, padding=True, truncation=True, return_tensors="pt",
+            max_length=128
+        ).to(device)
+        # (Batch_Size, Seq_Len)
+        # tokens = torch.tensor(tokens, dtype=torch.long, device=device)
+        # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
+        context = clip.encode_text(tokens)
         to_idle(clip)
 
         if sampler_name == "ddpm":
@@ -117,7 +98,8 @@ def generate(
         timesteps = tqdm(sampler.timesteps)
         for i, timestep in enumerate(timesteps):
             # (1, 320)
-            time_embedding = get_time_embedding(timestep).to(device)
+            timestep_tensor = torch.tensor([timestep], dtype=torch.float32, device=device)
+            time_embedding = get_time_embedding(timestep_tensor).to(device)
 
             # (Batch_Size, 4, Latents_Height, Latents_Width)
             model_input = latents
@@ -129,10 +111,6 @@ def generate(
             # model_output is the predicted noise
             # (Batch_Size, 4, Latents_Height, Latents_Width) -> (Batch_Size, 4, Latents_Height, Latents_Width)
             model_output = diffusion(model_input, context, time_embedding)
-
-            if do_cfg:
-                output_cond, output_uncond = model_output.chunk(2)
-                model_output = cfg_scale * (output_cond - output_uncond) + output_uncond
 
             # (Batch_Size, 4, Latents_Height, Latents_Width) -> (Batch_Size, 4, Latents_Height, Latents_Width)
             latents = sampler.step(timestep, latents, model_output)
@@ -150,7 +128,7 @@ def generate(
         images = images.permute(0, 2, 3, 1)
         images = images.to("cpu", torch.uint8).numpy()
         return images
-    
+
 def rescale(x, old_range, new_range, clamp=False):
     old_min, old_max = old_range
     new_min, new_max = new_range

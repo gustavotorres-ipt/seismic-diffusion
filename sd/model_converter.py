@@ -2,6 +2,10 @@ import torch
 
 def load_from_standard_weights(input_file: str, device: str) -> dict[str, torch.Tensor]:
     # Taken from: https://github.com/kjsman/stable-diffusion-pytorch/issues/7#issuecomment-1426839447
+    if 'multimodal_model' in input_file:
+        original_model = torch.load(input_file, map_location=device, weights_only = False)# ["state_dict"]
+        return original_model
+
     original_model = torch.load(input_file, map_location=device, weights_only = False)["state_dict"]
 
     converted = {}

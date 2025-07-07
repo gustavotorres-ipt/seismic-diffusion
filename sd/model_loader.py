@@ -1,5 +1,4 @@
 import torch
-from clip import CLIP
 from encoder import VAE_Encoder
 from decoder import VAE_Decoder
 from diffusion import Diffusion
@@ -19,16 +18,19 @@ def preload_models_from_standard_weights(ckpt_path, device):
     diffusion = Diffusion().to(device)
     # diffusion.load_state_dict(state_dict['diffusion'], strict=True)
 
-    # clip = CLIP().to(device)
-    # clip.load_state_dict(state_dict['clip'], strict=True)
-
     custom_clip_model = load_clip_model()
-    custom_clip_model.load_state_dict(torch.load("customized_clip.pth"))
+
+    if "multimodal_model" not in ckpt_path:
+        custom_clip_model.load_state_dict(torch.load("customized_clip.pth"))
     custom_clip_model.to(device)
 
     return {
         'encoder': encoder,
         'decoder': decoder,
         'diffusion': diffusion,
-        'clip': custom_clip_model
+        'clip': custom_clip_model,
     }
+
+    # clip = CLIP().to(device)
+    # clip.load_state_dict(state_dict['clip'], strict=True)
+
