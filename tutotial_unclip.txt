@@ -47,8 +47,8 @@ Use your PriorTransformer to generate CLIP image embeddings first:
 from diffusers import PriorTransformer, UnCLIPScheduler
 
 # Suppose you have already loaded a trained PriorTransformer
-prior = PriorTransformer.from_pretrained("your/model/path")
-prior_scheduler = UnCLIPScheduler.from_pretrained("...")  # or equivalent
+prior = PriorTransformer.from_pretrained("kakaobrain/karlo-v1-alpha")
+prior_scheduler = UnCLIPScheduler.from_pretrained("kakaobrain/karlo-v1-alpha")  # or equivalent
 
 # Sample z ~ diffusion prior:
 # Use prior(text_embeds) to generate image_embeds conditioned on text_encodings

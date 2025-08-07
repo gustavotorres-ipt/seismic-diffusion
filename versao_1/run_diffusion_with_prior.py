@@ -11,7 +11,8 @@ from transformers import AutoTokenizer
 from datetime import datetime
 
 
-NUM_IMAGES = 4
+
+NUM_IMAGES = 1
 DEVICE = "cuda"
 
 n_timesteps_decoder = 50
@@ -65,7 +66,8 @@ def generate_images(scheduler, unet, projector, vae, img_embeddings):
         # 4. Decode latents to image using VAE decoder
         latents = latents / 0.18215  # Scaling factor used in SD 1.4/1.5
         images = vae.decode(latents).sample
-        return images
+
+        save_images(images)
 
 
 def show_images(images):
@@ -76,7 +78,7 @@ def show_images(images):
         final_image.show()
 
 
-def save_images(images, prompt):
+def save_images(images):
     folder_output = "gen_images"
     os.makedirs(folder_output, exist_ok=True)
 
@@ -91,27 +93,22 @@ def save_images(images, prompt):
         # Format the datetime object into the desired string format
         date_hour = current_datetime.strftime('%Y-%m-%d-%H-%M-%S-%f')
 
-        filename_img = f"image_{date_hour}.png"
-        filename_txt = f"image_{date_hour}_prompt.txt"
+        filename = f"image_{date_hour}.png"
 
-        final_image.save(f"{folder_output}/{filename_img}")
-        print(f"{filename_img} saved successfully.")
-
-        with open(filename_txt, "w") as f:
-            f.write(prompt)
-            print(f"{filename_txt} saved successfully.")
+        final_image.save(f"{folder_output}/{filename}")
+        print(f"{filename} saved successfully.")
 
 
 def get_text_prompt_tokens():
-    user_prompt = input("Image prompt: ")
+    user_prompt = "A fault to the east."  # input("Image prompt: ")
 
     tokenizer = AutoTokenizer.from_pretrained('distilbert-base-uncased')
     tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-    tokenized_prompt = tokenizer(
+    tok_texts = tokenizer(
         user_prompt, padding=True, truncation=True, return_tensors="pt",
         max_length=128
     ).to(DEVICE)
-    return user_prompt, tokenized_prompt
+    return tok_texts
 
 
 def main():
@@ -127,9 +124,9 @@ def main():
             prior.load_state_dict(prior_checkpoint["model_state"])
         prior.to(DEVICE)
 
-        prompt, tokens_prompt = get_text_prompt_tokens()
+        tok_prompt = get_text_prompt_tokens()
 
-        text_embeddings = custom_clip_model.encode_text(tokens_prompt)
+        text_embeddings = custom_clip_model.encode_text(tok_prompt)
         img_embeddings = convert_text_to_image_embeds(prior, text_embeddings)
 
         if NUM_IMAGES > 1:
@@ -154,8 +151,7 @@ def main():
             projector.load_state_dict(checkpoint["projector_state"])
 
         print("Generating image...")
-        images = generate_images(scheduler, unet, projector, vae, img_embeddings)
-        save_images(images, prompt)
+        generate_images(scheduler, unet, projector, vae, img_embeddings)
 
 
 if __name__ == "__main__":
