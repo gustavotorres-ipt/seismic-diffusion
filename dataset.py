@@ -2,13 +2,12 @@ import json
 import os
 import random
 import torch
-import numpy as np
 from torch.utils.data import random_split
 from PIL import Image
+from torchvision.transforms.functional import to_pil_image
 
-
-IMAGE_FOLDER = "../data/images"
-TEXT_FOLDER = "../data/captions"
+IMAGE_FOLDER = "images"
+TEXT_FOLDER = "captions"
 
 
 def read_captions_json(file_path):
@@ -20,7 +19,8 @@ def load_images(batch_size):
     image_paths = [os.path.join(IMAGE_FOLDER, filename)
                    for filename in os.listdir(IMAGE_FOLDER) ]
     random.shuffle(image_paths)
-    images = [Image.open(path).convert("RGB") for path in image_paths[:batch_size]]
+    images = [Image.open(path).convert("RGB")
+              for path in image_paths[:batch_size]]
     return images
 
 def load_datasets(preprocess):
@@ -56,10 +56,14 @@ class CustomDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         # Load image
         image = Image.open(self.image_paths[idx]).convert("RGB")
-        image = torch.from_numpy(np.array(image)).permute(2, 0, 1)
-        image_norm = (image / 127.5) - 1.0
+        if self.transform:
+            image = self.transform(image)
 
-        # if self.transform:
-        #     image = self.transform(image)
         text = self.texts[idx]
-        return image_norm, text
+
+        # image = image.clamp(0, 1).cpu()
+        # Convert to PIL image
+        # final_image = to_pil_image(image)
+        #final_image.show()
+
+        return image, text

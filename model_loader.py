@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoTokenizer, AutoModel
 from torchvision import models
+import open_clip
 
 class CustomCLIPModel(nn.Module):
     def __init__(self, image_encoder, text_encoder, init_temperature=0.1):
@@ -60,10 +61,24 @@ def load_custom_encoders():
     image_encoder.eval()
 
     text_encoder = AutoModel.from_pretrained('seismic_distilbert.pt')
-    return image_encoder, text_encoder
+    return image_encoder.to("cuda"), text_encoder
 
 def load_clip_model():
     image_encoder, text_encoder = load_custom_encoders()
     custom_clip_model = CustomCLIPModel(image_encoder, text_encoder)
 
-    return custom_clip_model
+    _, _, preprocessor = open_clip.create_model_and_transforms(
+        'ViT-B-32', pretrained='laion2b_s34b_b79k'
+    )
+
+    return custom_clip_model, preprocessor
+
+
+class EmbedProjector(nn.Module):
+    def __init__(self, in_dim=512, out_dim=768):
+        super().__init__()
+        self.linear = nn.Linear(in_dim, out_dim)
+
+    def forward(self, x):
+        x = self.linear(x)  # (B, 768)
+        return x.unsqueeze(1)  # (B, 1, 768)
