@@ -1,0 +1,67 @@
+import torch
+from diffusers import UNet2DConditionModel, UnCLIPScheduler, AutoencoderKL
+from transformers import CLIPTextModel, CLIPTokenizer, CLIPVisionModelWithProjection
+
+# 1. Load CLIP encoders
+tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
+text_encoder = CLIPTextModel.from_pretrained("openai/clip-vit-large-patch14")
+vision_encoder = CLIPVisionModelWithProjection.from_pretrained("openai/clip-vit-large-patch14")
+
+# 2. Encode text + images
+prompts = ["a beautiful sunrise over the mountains"]
+inputs = tokenizer(prompts, return_tensors="pt", padding=True)
+text_embeds = text_encoder(**inputs).last_hidden_state
+# For supervision in training, compute image embedding:
+# image_embeds = vision_encoder(pixel_values=your_images).image_embeds
+#
+🧩 Step 2: Instantiate the UNet2DConditionModel decoder + scheduler
+
+unet = UNet2DConditionModel.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="unet")
+# Use UnCLIP-specific scheduler if you're mirroring DALL·E 2 decoder:
+scheduler = UnCLIPScheduler.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="scheduler")
+
+🔄 Step 3: Diffusion (pseudo‑code for image generation with conditioning)
+
+batch_size = text_embeds.shape[0]
+latent_shape = (batch_size, unet.config.in_channels, 64, 64)
+latents = torch.randn(latent_shape, device=text_embeds.device) * scheduler.init_noise_sigma
+
+scheduler.set_timesteps(num_inference_steps)
+
+for t in scheduler.timesteps:
+    latent_model_input = scheduler.scale_model_input(latents, t)
+    noise_pred = unet(
+        latent_model_input,
+        t,
+        encoder_hidden_states=image_embeds,  # CLIP image embedding from prior
+    ).sample
+    latents = scheduler.step(noise_pred, t, latents).prev_sample
+
+# Decode latent to high‑res image via VAE:
+vae = AutoencoderKL.from_pretrained("CompVis/stable-diffusion-v1-4", subfolder="vae")
+images = vae.decode(latents / vae.config.scaling_factor).sample
+
+📚 Putting it together with a prior
+Use your PriorTransformer to generate CLIP image embeddings first:
+
+from diffusers import PriorTransformer, UnCLIPScheduler
+
+# Suppose you have already loaded a trained PriorTransformer
+prior = PriorTransformer.from_pretrained("your/model/path")
+prior_scheduler = UnCLIPScheduler.from_pretrained("...")  # or equivalent
+
+# Sample z ~ diffusion prior:
+# Use prior(text_embeds) to generate image_embeds conditioned on text_encodings
+image_embeds = prior(text_embeds, timesteps=100, proj_embedding=text_embeds).predicted_image_embedding
+Then feed image_embeds into the U‑Net pipeline above for decoding.
+
+✅ Summary
+Step	Action
+1️⃣	Encode text → text_embeds via CLIP
+2️⃣	Use PriorTransformer to predict image_embeds (CLIP format)
+3️⃣	Initialize UNet2DConditionModel and scheduler
+4️⃣	Run diffusion denoising conditioned on image_embeds to produce latents
+5️⃣	Decode latents into pixels via VAE
+
+
+The scheduler used (UnCLIPScheduler for unCLIP, PNDMScheduler for stable diffusion, etc.) should match your training regime.
